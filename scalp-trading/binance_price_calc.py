@@ -4,7 +4,7 @@
 
 import sys
 import requests
-from scalp_calc import calc_profit
+from scalp_calc import calc_profit, format_currency
 
 # Binance API endpoint for price
 BINANCE_PRICE_URL = "https://api.binance.com/api/v3/ticker/price"
@@ -22,6 +22,18 @@ def get_current_price(symbol):
     except (KeyError, ValueError) as e:
         print(f"Error parsing response: {e}")
         sys.exit(1)
+
+def print_current_result(result):
+    """Print current price result in clean format"""
+    print("=" * 35)
+    print("PERCENTAGES")
+    print(f"Price Change: {result['price_change']:.3f}%")
+    print("-" * 35)
+    print("AMOUNTS")
+    print(f"Gross: {format_currency(result['gross_amount'])}")
+    print(f"Fees : {format_currency(result['fees'])}")
+    print(f"Net  : {format_currency(result['net_amount'])}")
+    print("=" * 35)
 
 def main():
     """Main function to handle command line arguments and calculations"""
@@ -47,12 +59,16 @@ def main():
     
     # Calculate profit using existing function
     result = calc_profit(entry_price, current_price, position_size, use_bnb_discount=use_bnb, leverage=1)
-    
-    print(f"\n📊 Results (Position: ${position_size})")
-    print(f"Fee rate: {result['fee_rate_used']}")
-    for k, v in result.items():
-        if k != "fee_rate_used":
-            print(f"{k:15}: {v}")
+
+    # Determine fee rate for display
+    fee_rate = "BNB discount (0.075%)" if use_bnb else "Normal (0.10%)"
+
+    print(f"\n📊 Current Price Analysis (Position: {format_currency(position_size)})")
+    print(f"Entry Price     : ${entry_price:.4f}")
+    print(f"Current Price   : ${current_price:.4f}")
+    print(f"Fee Rate        : {fee_rate}")
+
+    print_current_result(result)
 
 if __name__ == "__main__":
     main()
