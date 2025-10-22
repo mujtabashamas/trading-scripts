@@ -8,11 +8,7 @@ BINANCE_BNB_FEE = 0.00075   # 0.075% per trade (0.15% total for buy+sell) with B
 
 def calc_profit(entry, exit, position_size, use_bnb_discount=False, leverage=1):
     """
-    entry: entry price (float)
-    exit: exit price (float)
-    position_size: USD size of position
-    use_bnb_discount: whether to use BNB discount fee rate
-    leverage: leverage multiplier (1x for spot trading)
+    Calculate profit/loss for a trade
     """
     # Determine fee rate based on BNB discount
     fee_rate = BINANCE_BNB_FEE if use_bnb_discount else BINANCE_NORMAL_FEE
@@ -24,34 +20,61 @@ def calc_profit(entry, exit, position_size, use_bnb_discount=False, leverage=1):
     net_profit = gross_profit - total_fees
     
     return {
-        "price_change_%": round(price_change_pct * 100, 3),
-        "gross_%": round(gross_pct * 100, 3),
-        "gross_profit": round(gross_profit, 2),
+        "price_change": round(price_change_pct * 100, 3),
+        "gross_amount": round(gross_profit, 2),
         "fees": round(total_fees, 2),
-        "net_profit": round(net_profit, 2),
-        "fee_rate_used": "BNB discount" if use_bnb_discount else "Normal"
+        "net_amount": round(net_profit, 2)
     }
 
 
+def format_currency(value):
+    """Format value as currency with dollar sign"""
+    return f"${value:,.2f}"
+
+def print_scenario(title, result):
+    """Print a formatted scenario table"""
+    print(f"\n{title}")
+    print("=" * 35)
+    print("PERCENTAGES")
+    print(f"Price Change: {result['price_change']:.3f}%")
+    print("-" * 35)
+    print("AMOUNTS")
+    print(f"Gross: {format_currency(result['gross_amount'])}")
+    print(f"Fees : {format_currency(result['fees'])}")
+    print(f"Net  : {format_currency(result['net_amount'])}")
+    print("=" * 35)
+
 if __name__ == "__main__":
-    # Get position size from command line argument
-    if len(sys.argv) < 2:
-        print("Usage: python scalp_calc.py <position_size> [--bnb]")
+    # Get all parameters from command line arguments
+    if len(sys.argv) < 5:
+        print("Usage: python scalp_calc.py <entry_price> <take_profit> <stop_loss> <position_size> [--bnb]")
+        print("  entry_price: your entry price")
+        print("  take_profit: take profit exit price")
+        print("  stop_loss: stop loss exit price")
         print("  position_size: USD size of position")
         print("  --bnb: use BNB discount fee rate (optional)")
         sys.exit(1)
     
-    position_size = float(sys.argv[1])
+    entry = float(sys.argv[1])
+    take_profit = float(sys.argv[2])
+    stop_loss = float(sys.argv[3])
+    position_size = float(sys.argv[4])
     use_bnb = "--bnb" in sys.argv
     
-    # Only ask for entry and exit prices
-    entry = float(input("Entry price: "))
-    exit = float(input("Exit price: "))
+    # Determine fee rate for display
+    fee_rate = "BNB discount (0.075%)" if use_bnb else "Normal (0.10%)"
     
-    result = calc_profit(entry, exit, position_size, use_bnb_discount=use_bnb, leverage=1)
+    print(f"📊 Trade Analysis (Position: {format_currency(position_size)})")
+    print(f"Entry Price       {entry:.4f}")
+    print(f"Take Profit       {take_profit:.4f}")
+    print(f"Stop Loss         {stop_loss:.4f}")
+    print(f"Fee Rate          {fee_rate}")
     
-    print(f"\n📊 Results (Position: ${position_size})")
-    print(f"Fee rate: {result['fee_rate_used']}")
-    for k, v in result.items():
-        if k != "fee_rate_used":
-            print(f"{k:15}: {v}")
+    # Calculate profit scenario
+    profit_result = calc_profit(entry, take_profit, position_size, use_bnb_discount=use_bnb, leverage=1)
+    
+    # Calculate loss scenario  
+    loss_result = calc_profit(entry, stop_loss, position_size, use_bnb_discount=use_bnb, leverage=1)
+    
+    print_scenario("✅ TAKE PROFIT", profit_result)
+    print_scenario("❌ STOP LOSS", loss_result)
