@@ -1,10 +1,35 @@
 # scalp_calc.py
 # Optimized for Binance spot trading profit calculator
-import sys
+import os, sys
 
 # Binance spot trading fee rates
 BINANCE_NORMAL_FEE = 0.0010  # 0.10% per trade (0.20% total for buy+sell)
 BINANCE_BNB_FEE = 0.00075   # 0.075% per trade (0.15% total for buy+sell) with BNB discount
+
+RESET = "\033[0m"
+
+# 24-bit RGB (truecolor) escape builder
+def rgb(r, g, b):  # foreground
+    return f"\033[38;2;{r};{g};{b}m"
+
+BOLD = "\033[1m"
+TRUE_GREEN = rgb(0, 255, 0)
+TRUE_RED   = rgb(255, 0, 0)  # Brighter red
+
+def supports_truecolor():
+    return os.environ.get("COLORTERM", "").lower() == "truecolor"
+
+def colorize_positive(s):
+    if supports_truecolor():
+        return f"{BOLD}{TRUE_GREEN}{s}{RESET}"
+    # fallback to bright ANSI
+    return f"{BOLD}\033[92m{s}{RESET}"
+
+def colorize_negative(s):
+    if supports_truecolor():
+        return f"{BOLD}{TRUE_RED}{s}{RESET}"
+    # fallback to bright ANSI
+    return f"{BOLD}\033[91m{s}{RESET}"
 
 def calc_profit(entry, exit, position_size, use_bnb_discount=False, leverage=1):
     """
@@ -32,17 +57,15 @@ def format_currency(value):
     return f"${value:,.2f}"
 
 def print_scenario(title, result):
-    """Print a formatted scenario table"""
-    print(f"\n{title}")
-    print("=" * 35)
-    print("PERCENTAGES")
-    print(f"Price Change: {result['price_change']:.3f}%")
-    print("-" * 35)
-    print("AMOUNTS")
-    print(f"Gross: {format_currency(result['gross_amount'])}")
-    print(f"Fees : {format_currency(result['fees'])}")
-    print(f"Net  : {format_currency(result['net_amount'])}")
-    print("=" * 35)
+    """Print a concise scenario result with colors"""
+    if result['net_amount'] >= 0:
+        colorized_title = colorize_positive(title)
+        colorized_values = colorize_positive(f"{result['price_change']:.2f}% | Net: {format_currency(result['net_amount'])}")
+    else:
+        colorized_title = colorize_negative(title)
+        colorized_values = colorize_negative(f"{result['price_change']:.2f}% | Net: {format_currency(result['net_amount'])}")
+
+    print(f"{colorized_title:<12}: {colorized_values}")
 
 if __name__ == "__main__":
     # Get all parameters from command line arguments
@@ -61,20 +84,11 @@ if __name__ == "__main__":
     position_size = float(sys.argv[4])
     use_bnb = "--bnb" in sys.argv
     
-    # Determine fee rate for display
-    fee_rate = "BNB discount (0.075%)" if use_bnb else "Normal (0.10%)"
-    
-    print(f"📊 Trade Analysis (Position: {format_currency(position_size)})")
-    print(f"Entry Price       {entry:.4f}")
-    print(f"Take Profit       {take_profit:.4f}")
-    print(f"Stop Loss         {stop_loss:.4f}")
-    print(f"Fee Rate          {fee_rate}")
-    
     # Calculate profit scenario
     profit_result = calc_profit(entry, take_profit, position_size, use_bnb_discount=use_bnb, leverage=1)
-    
-    # Calculate loss scenario  
+
+    # Calculate loss scenario
     loss_result = calc_profit(entry, stop_loss, position_size, use_bnb_discount=use_bnb, leverage=1)
-    
-    print_scenario("✅ TAKE PROFIT", profit_result)
-    print_scenario("❌ STOP LOSS", loss_result)
+
+    print_scenario("TAKE PROFIT", profit_result)
+    print_scenario("STOP LOSS", loss_result)
